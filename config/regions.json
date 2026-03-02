@@ -1,0 +1,13 @@
+{
+  "active_data_zone": {
+    "crop": {
+      "lon_start": 1000,
+      "lon_end": 4500
+    },
+    "folium": {
+      "bounds": [[21.0, 62.5], [51.5, 217.1]],
+      "center": [33.2, 140.7],
+      "marker_label": "Himawari S04 Strip"
+    }
+  }
+}
