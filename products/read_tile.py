@@ -395,6 +395,8 @@ def read_hsd_tile(file_path: str):
     img[img > 4095] = np.nan
 
     print(f"✅ {band_id} Successfully Loaded: {img.shape}")
+    print(f"{band_id} gain: {gain}")
+    print(f"{band_id} offset: {offset}")
 
     return img, gain, offset
 
@@ -408,7 +410,8 @@ def pixel_latlon(line, col, segment_index):
     Convert pixel → latitude/longitude
     """
 
-    line_offset = (segment_index - 1) * SEGMENT_HEIGHT
+    # line_offset = (segment_index - 1) * SEGMENT_HEIGHT
+    line_offset = 0
 
     l = line + line_offset
     c = col
@@ -445,6 +448,11 @@ def pixel_latlon(line, col, segment_index):
     lon = np.rad2deg(
         SUB_LON_RAD + np.arctan2(s2, s1)
     )
+    # Normalize longitude to -180 to 180
+    if lon > 180:
+        lon -= 360
+    elif lon < -180:
+        lon += 360
 
     return lat, lon
 

@@ -1,152 +1,503 @@
 
-# import numpy as np
-# import matplotlib.pyplot as plt
-# from matplotlib.colors import ListedColormap
 
-# def plot_seedability(seed_map):
-#     cmap = ListedColormap(["#d9d9d9", "#fdae61", "#1a9850"])
-#     alpha = np.ones(seed_map.shape)
-#     alpha[seed_map == -1] = 0.0
-
-#     plt.figure(figsize=(8, 6))
-#     img = plt.imshow(seed_map, cmap=cmap, vmin=0, vmax=2, alpha=alpha, interpolation='nearest')
-    
-#     # Gohana Marker
-#     gohana_x, gohana_y = 210, 270 
-#     plt.plot(gohana_x, gohana_y, 'ro', markersize=8, label='Gohana (Home)')
-#     plt.text(gohana_x + 5, gohana_y, ' Gohana', color='red', fontweight='bold')
-
-#     plt.title("Himawari-9 Real-Time Seedability Map\n(North India Focus)", fontsize=12)
-#     cbar = plt.colorbar(img, ticks=[0, 1, 2], fraction=0.046, pad=0.04)
-#     cbar.ax.set_yticklabels(['GRAY', 'AMBER', 'GREEN'])
-    
-#     plt.savefig("latest_seedability_map.png", dpi=300)
-#     print("🎨 Map generated and saved as 'latest_seedability_map.png'")
-    
-#     # 🔥 FIX: Use non-blocking show
-#     plt.show(block=False)
-#     plt.pause(1) # Small pause to allow the window to render
-
-"""2 bands"""
-
-# import numpy as np
-# import matplotlib.pyplot as plt
-# from matplotlib.colors import ListedColormap
-
-# def plot_seedability(seed_map):
-#     # Colors: 0:Gray, 1:Amber, 2:Green
-#     cmap = ListedColormap(["#d9d9d9", "#fdae61", "#1a9850"])
-    
-#     # Create transparency mask for Clear Sky (-1)
-#     alpha = np.ones(seed_map.shape)
-#     alpha[seed_map == -1] = 0.0
-
-#     plt.figure(figsize=(10, 7))
-#     img = plt.imshow(seed_map, cmap=cmap, vmin=0, vmax=2, alpha=alpha, interpolation='nearest')
-    
-#     # --- UPDATED: Dynamic Gohana Marker ---
-#     # Note: If Gohana looks shifted, adjust these based on your current 1150-1850 crop
-#     gohana_x, gohana_y = 180, 290 
-#     plt.plot(gohana_x, gohana_y, 'ro', markersize=8, markeredgecolor='white', label='Gohana (Home)')
-#     plt.text(gohana_x + 8, gohana_y, 'Gohana', color='red', fontweight='bold', 
-#              bbox=dict(facecolor='white', alpha=0.6, edgecolor='none'))
-
-#     plt.title("Himawari-9 Real-Time Seedability Map\n(Dual-Band B13/B14 Filter Active)", fontsize=12)
-#     plt.xlabel("Pixel Longitude (Relative to Crop)")
-#     plt.ylabel("Pixel Latitude")
-
-#     cbar = plt.colorbar(img, ticks=[0, 1, 2], fraction=0.046, pad=0.04)
-#     cbar.ax.set_yticklabels(['GRAY (Ice/Haze)', 'AMBER (Watch)', 'GREEN (Seedable)'])
-    
-#     plt.grid(alpha=0.2, linestyle='--')
-#     plt.savefig("latest_seedability_map.png", dpi=300, bbox_inches='tight')
-#     print("🎨 Map generated and saved as 'latest_seedability_map.png'")
-    
-#     plt.show(block=False)
-#     plt.pause(1)
-
-# import numpy as np
-# import matplotlib.pyplot as plt
-# from matplotlib.colors import ListedColormap
-
-# def plot_seedability(seed_map):
-#     """
-#     Static Seedability Plot with Tri-Band (B8+B13+B14) Logic metadata.
-#     """
-#     # Colors: 0:Gray, 1:Amber, 2:Green
-#     cmap = ListedColormap(["#d9d9d9", "#fdae61", "#1a9850"])
-    
-#     # Create transparency mask for Clear Sky (-1)
-#     alpha = np.ones(seed_map.shape)
-#     alpha[seed_map == -1] = 0.0
-
-#     plt.figure(figsize=(10, 7))
-#     img = plt.imshow(seed_map, cmap=cmap, vmin=0, vmax=2, alpha=alpha, interpolation='nearest')
-    
-#     # --- Dynamic Gohana Marker (Center of Haryana) ---
-#     gohana_x, gohana_y = 180, 290 
-#     plt.plot(gohana_x, gohana_y, 'ro', markersize=8, markeredgecolor='white', label='Gohana (Home)')
-#     plt.text(gohana_x + 8, gohana_y, 'Gohana', color='red', fontweight='bold', 
-#              bbox=dict(facecolor='white', alpha=0.6, edgecolor='none'))
-
-#     # Updated Title to reflect B8 (Moisture) integration
-#     plt.title("Himawari-9 Real-Time Seedability Map\n(Tri-Band B8/B13/B14 Filter Active)", fontsize=12)
-#     plt.xlabel("Pixel Longitude (Gohana Focus Crop)")
-#     plt.ylabel("Pixel Latitude")
-
-#     # Legend indicating the strict Tri-Band criteria
-#     cbar = plt.colorbar(img, ticks=[0, 1, 2], fraction=0.046, pad=0.04)
-#     cbar.ax.set_yticklabels(['GRAY (Ice/Dry)', 'AMBER (Watch)', 'GREEN (Seedable)'])
-    
-#     # Grid and Save
-#     plt.grid(alpha=0.1, linestyle='--')
-#     plt.savefig("latest_seedability_map.png", dpi=300, bbox_inches='tight')
-#     print("🎨 Tri-Band Map saved as 'latest_seedability_map.png'")
-    
-#     plt.show(block=False)
-#     plt.pause(1)
 
 import numpy as np
 import matplotlib.pyplot as plt
-from matplotlib.colors import ListedColormap
+import matplotlib.patches as mpatches
+from scipy.ndimage import shift, zoom
+from skimage.registration import phase_cross_correlation
+import cartopy.crs as ccrs
 
-def plot_seedability(seed_map):
+# ── Visible pipeline constants ────────────────────────────────────────────────
+VIS_CROP_COL = 0
+VIS_STRETCH  = 1.5
+VIS_TARGET_H = 400
+VIS_TARGET_W = 1300
+VIS_ZOOM_X   = 1.25
+
+# ── IR pipeline constants ─────────────────────────────────────────────────────
+IR_CROP_COL  = 750
+IR_STRETCH   = 1.8
+IR_TARGET_H  = 400
+IR_TARGET_W  = 1300
+IR_ZOOM_X    = 1.25
+
+LON_MIN, LON_MAX = 72, 130
+LAT_MIN, LAT_MAX =  9,  22
+
+LEGEND = [
+    mpatches.Patch(color=(0, 0.8, 0),        label="Green  — Seedable (High Potential)"),
+    mpatches.Patch(color=(1, 0.7, 0),        label="Amber  — Watch (Marginal)"),
+    mpatches.Patch(color=(0.55, 0.55, 0.55), label="Gray   — Do Not Seed"),
+]
+
+
+def _stretch_img(img):
+    img = np.nan_to_num(img)
+    p1, p99 = np.percentile(img, 1), np.percentile(img, 99)
+    if p99 - p1 == 0:
+        return img
+    return np.clip((img - p1) / (p99 - p1), 0, 1)
+
+
+def prepare_rgb(b01, b02):
+    b01 = _stretch_img(b01)
+    b02 = _stretch_img(b02)
+
+    shift_detected, _, _ = phase_cross_correlation(b01, b02, upsample_factor=20)
+    b02_aligned = shift(b02, shift_detected)
+
+    rgb = np.dstack((b01, b02_aligned, np.zeros_like(b01)))
+    rgb = np.clip(rgb, 0, 1)
+
+    rgb = zoom(rgb, (1, VIS_ZOOM_X, 1))
+    rgb = rgb[:, VIS_CROP_COL:, :]
+
+    zh = VIS_TARGET_H / rgb.shape[0]
+    zw = (VIS_TARGET_W / rgb.shape[1]) * VIS_STRETCH
+    rgb = zoom(rgb, (zh, zw, 1))
+    rgb = np.clip(rgb, 0, 1)
+
+    return rgb
+
+
+def _apply_pipeline_to_binary(mask2d):
     """
-    Static Seedability Plot updated for Physically-Aligned Engine.
-    Reflects Depth (>2.5km) and LWP thresholds per documentation.
+    Stretch a single binary mask (0.0 / 1.0) through the IR pipeline.
+    Uses continuous interpolation then thresholds at 0.5 — accurate for binary data.
     """
-    # Colors: 0:Gray (Unsuitable), 1:Amber (Watch), 2:Green (High Potential)
-    cmap = ListedColormap(["#d9d9d9", "#fdae61", "#1a9850"])
-    
-    # Create transparency mask for Clear Sky (-1)
-    alpha = np.ones(seed_map.shape)
-    alpha[seed_map == -1] = 0.0
+    arr = zoom(mask2d.astype(np.float32), (1, IR_ZOOM_X))
+    arr = arr[:, IR_CROP_COL:]
 
-    plt.figure(figsize=(10, 8))
-    img = plt.imshow(seed_map, cmap=cmap, vmin=0, vmax=2, alpha=alpha, interpolation='nearest')
-    
-    # --- Gohana Marker ---
-    gohana_x, gohana_y = 180, 290 
-    plt.plot(gohana_x, gohana_y, 'ro', markersize=8, markeredgecolor='white')
-    plt.text(gohana_x + 8, gohana_y, 'Gohana (Analysis Center)', color='red', 
-             fontweight='bold', bbox=dict(facecolor='white', alpha=0.7, edgecolor='none'))
+    zh = IR_TARGET_H / arr.shape[0]
+    zw = (IR_TARGET_W / arr.shape[1]) * IR_STRETCH
+    arr = zoom(arr, (zh, zw))
 
-    # Title reflects physical alignment
-    plt.title("Himawari-9 Real-Time Seedability Map\nPhysically Aligned: CTT / Growth / Depth / LWP", fontsize=12)
-    plt.xlabel("Pixel Longitude")
-    plt.ylabel("Pixel Latitude")
+    if arr.shape[0] > IR_TARGET_H: arr = arr[:IR_TARGET_H, :]
+    if arr.shape[1] > IR_TARGET_W: arr = arr[:, :IR_TARGET_W]
+    if arr.shape[0] < IR_TARGET_H: arr = np.pad(arr, ((0, IR_TARGET_H - arr.shape[0]), (0, 0)))
+    if arr.shape[1] < IR_TARGET_W: arr = np.pad(arr, ((0, 0), (0, IR_TARGET_W - arr.shape[1])))
 
-    # Legend indicating physical criteria
-    cbar = plt.colorbar(img, ticks=[0, 1, 2], fraction=0.046, pad=0.04)
-    cbar.ax.set_yticklabels([
-        'GRAY (Shallow/Ice/Dry)', 
-        'AMBER (Watch: 1-2km depth)', 
-        'GREEN (Potential: >2.5km depth)'
-    ])
-    
-    plt.grid(alpha=0.1, linestyle='--')
-    plt.savefig("latest_seedability_map.png", dpi=300, bbox_inches='tight')
-    print("🎨 Physically-aligned map saved as 'latest_seedability_map.png'")
-    
-    plt.show(block=False)
-    plt.pause(1)
+    # Threshold at 0.5 — restores accurate binary values after interpolation
+    return arr > 0.5
+
+
+def build_flag_overlay(flag):
+    """
+    Option 2 — stretch each flag as a separate binary mask.
+    No interpolation artifacts between categories.
+    """
+    # Separate binary masks per category
+    green_mask = _apply_pipeline_to_binary((flag == 2).astype(np.float32))
+    amber_mask = _apply_pipeline_to_binary((flag == 1).astype(np.float32))
+    gray_mask  = _apply_pipeline_to_binary((flag == 0).astype(np.float32))
+
+    H, W = green_mask.shape
+    overlay = np.zeros((H, W, 4), dtype=np.float32)
+
+    # Apply in priority order: Green > Amber > Gray
+    overlay[gray_mask]  = [0.55, 0.55, 0.55, 1.0]
+    overlay[amber_mask] = [1.0,  0.7,  0.0,  1.0]
+    overlay[green_mask] = [0.0,  0.8,  0.0,  1.0]
+
+    print(f"\n🖼️  Overlay pixel counts (after pipeline):")
+    print(f"  Green : {np.count_nonzero(green_mask)}")
+    print(f"  Amber : {np.count_nonzero(amber_mask)}")
+    print(f"  Gray  : {np.count_nonzero(gray_mask)}")
+
+    return overlay
+
+
+def plot_all(data, products):
+    rgb = prepare_rgb(data["b01"], data["b02"])
+
+    flag    = products["flag"]
+    overlay = build_flag_overlay(flag)
+
+    # ── WINDOW 1 → VISIBLE RAW ────────────────────────────────────────────────
+    plt.figure(figsize=(14, 5))
+    plt.imshow(rgb)
+    plt.title("Himawari Visible (B01 + B02)")
+    plt.axis("off")
+    plt.tight_layout()
+    plt.show()
+
+    # ── WINDOW 2 → SEEDABILITY OVERLAY ON VISIBLE ────────────────────────────
+    fig = plt.figure(figsize=(14, 5))
+    ax = plt.axes(projection=ccrs.PlateCarree())
+    ax.set_extent([LON_MIN, LON_MAX, LAT_MIN, LAT_MAX], crs=ccrs.PlateCarree())
+    ax.imshow(rgb, origin="upper",
+              extent=[LON_MIN, LON_MAX, LAT_MIN, LAT_MAX],
+              transform=ccrs.PlateCarree(), aspect=None)
+    ax.imshow(overlay, origin="upper",
+              extent=[LON_MIN, LON_MAX, LAT_MIN, LAT_MAX],
+              transform=ccrs.PlateCarree(), aspect=None)
+    ax.coastlines(resolution="10m", color="white", linewidth=1)
+    ax.set_title("Seedability Decision Map")
+    ax.legend(handles=LEGEND, loc="lower right", fontsize=9,
+              framealpha=0.8, facecolor="black", labelcolor="white")
+    plt.tight_layout()
+    plt.show()
+
+    # ── WINDOW 3 → SIDE BY SIDE: VISIBLE + SEEDABILITY ───────────────────────
+    fig = plt.figure(figsize=(14, 10))
+
+    ax1 = fig.add_subplot(2, 1, 1, projection=ccrs.PlateCarree())
+    ax1.set_extent([LON_MIN, LON_MAX, LAT_MIN, LAT_MAX], crs=ccrs.PlateCarree())
+    ax1.imshow(rgb, origin="upper",
+               extent=[LON_MIN, LON_MAX, LAT_MIN, LAT_MAX],
+               transform=ccrs.PlateCarree(), aspect=None)
+    ax1.coastlines(resolution="10m", color="white", linewidth=1)
+    ax1.set_title("Himawari Visible")
+
+    ax2 = fig.add_subplot(2, 1, 2, projection=ccrs.PlateCarree())
+    ax2.set_extent([LON_MIN, LON_MAX, LAT_MIN, LAT_MAX], crs=ccrs.PlateCarree())
+    ax2.set_facecolor("black")
+    ax2.imshow(overlay, origin="upper",
+               extent=[LON_MIN, LON_MAX, LAT_MIN, LAT_MAX],
+               transform=ccrs.PlateCarree(), aspect=None)
+    ax2.coastlines(resolution="10m", color="white", linewidth=1)
+    ax2.set_title("Seedability Decision Map (Green / Amber / Gray)")
+    ax2.legend(handles=LEGEND, loc="lower right", fontsize=9,
+               framealpha=0.8, facecolor="black", labelcolor="white")
+
+    plt.tight_layout()
+    plt.show()
+
+
+# import numpy as np
+# import matplotlib.pyplot as plt
+# import matplotlib.patches as mpatches
+# from scipy.ndimage import shift, zoom
+# from skimage.registration import phase_cross_correlation
+# import cartopy.crs as ccrs
+
+# # ── Visible pipeline constants ────────────────────────────────────────────────
+# VIS_CROP_COL = 0
+# VIS_STRETCH  = 1.5
+# VIS_TARGET_H = 400
+# VIS_TARGET_W = 1300
+# VIS_ZOOM_X   = 1.25
+
+# # ── IR pipeline constants ─────────────────────────────────────────────────────
+# IR_CROP_COL  = 750
+# IR_STRETCH   = 1.8
+# IR_TARGET_H  = 400
+# IR_TARGET_W  = 1300
+# IR_ZOOM_X    = 1.25
+
+# LON_MIN, LON_MAX = 72, 130
+# LAT_MIN, LAT_MAX =  9,  22
+
+# LEGEND = [
+#     mpatches.Patch(color=(0, 0.8, 0),        label="Green  — Seedable (High Potential)"),
+#     mpatches.Patch(color=(1, 0.7, 0),        label="Amber  — Watch (Marginal)"),
+#     mpatches.Patch(color=(0.55, 0.55, 0.55), label="Gray   — Do Not Seed"),
+# ]
+
+
+# def _stretch_img(img):
+#     img = np.nan_to_num(img)
+#     p1, p99 = np.percentile(img, 1), np.percentile(img, 99)
+#     if p99 - p1 == 0:
+#         return img
+#     return np.clip((img - p1) / (p99 - p1), 0, 1)
+
+
+# def prepare_rgb(b01, b02):
+#     b01 = _stretch_img(b01)
+#     b02 = _stretch_img(b02)
+
+#     shift_detected, _, _ = phase_cross_correlation(b01, b02, upsample_factor=20)
+#     b02_aligned = shift(b02, shift_detected)
+
+#     rgb = np.dstack((b01, b02_aligned, np.zeros_like(b01)))
+#     rgb = np.clip(rgb, 0, 1)
+
+#     rgb = zoom(rgb, (1, VIS_ZOOM_X, 1))
+#     rgb = rgb[:, VIS_CROP_COL:, :]
+
+#     zh = VIS_TARGET_H / rgb.shape[0]
+#     zw = (VIS_TARGET_W / rgb.shape[1]) * VIS_STRETCH
+#     rgb = zoom(rgb, (zh, zw, 1))
+#     rgb = np.clip(rgb, 0, 1)
+
+#     return rgb
+
+
+# def _apply_pipeline_to_binary(mask2d):
+#     """
+#     Stretch a single binary mask (0.0 / 1.0) through the IR pipeline.
+#     Uses continuous interpolation then thresholds at 0.5 — accurate for binary data.
+#     """
+#     arr = zoom(mask2d.astype(np.float32), (1, IR_ZOOM_X))
+#     arr = arr[:, IR_CROP_COL:]
+
+#     zh = IR_TARGET_H / arr.shape[0]
+#     zw = (IR_TARGET_W / arr.shape[1]) * IR_STRETCH
+#     arr = zoom(arr, (zh, zw))
+
+#     if arr.shape[0] > IR_TARGET_H: arr = arr[:IR_TARGET_H, :]
+#     if arr.shape[1] > IR_TARGET_W: arr = arr[:, :IR_TARGET_W]
+#     if arr.shape[0] < IR_TARGET_H: arr = np.pad(arr, ((0, IR_TARGET_H - arr.shape[0]), (0, 0)))
+#     if arr.shape[1] < IR_TARGET_W: arr = np.pad(arr, ((0, 0), (0, IR_TARGET_W - arr.shape[1])))
+
+#     # Threshold at 0.5 — restores accurate binary values after interpolation
+#     return arr > 0.5
+
+
+# def build_flag_overlay(flag):
+#     """
+#     Option 2 — stretch each flag as a separate binary mask.
+#     No interpolation artifacts between categories.
+#     """
+#     # Separate binary masks per category
+#     green_mask = _apply_pipeline_to_binary((flag == 2).astype(np.float32))
+#     amber_mask = _apply_pipeline_to_binary((flag == 1).astype(np.float32))
+#     gray_mask  = _apply_pipeline_to_binary((flag == 0).astype(np.float32))
+
+#     H, W = green_mask.shape
+#     overlay = np.zeros((H, W, 4), dtype=np.float32)
+
+#     # Apply in priority order: Green > Amber > Gray
+#     overlay[gray_mask]  = [0.55, 0.55, 0.55, 1.0]
+#     overlay[amber_mask] = [1.0,  0.7,  0.0,  1.0]
+#     overlay[green_mask] = [0.0,  0.8,  0.0,  1.0]
+
+#     print(f"\n🖼️  Overlay pixel counts (after pipeline):")
+#     print(f"  Green : {np.count_nonzero(green_mask)}")
+#     print(f"  Amber : {np.count_nonzero(amber_mask)}")
+#     print(f"  Gray  : {np.count_nonzero(gray_mask)}")
+
+#     return overlay
+
+
+# def plot_all(data, products):
+#     rgb = prepare_rgb(data["b01"], data["b02"])
+
+#     flag    = products["flag"]
+#     overlay = build_flag_overlay(flag)
+
+#     # ── WINDOW 1 → VISIBLE RAW ────────────────────────────────────────────────
+#     plt.figure(figsize=(14, 5))
+#     plt.imshow(rgb)
+#     plt.title("Himawari Visible (B01 + B02)")
+#     plt.axis("off")
+#     plt.tight_layout()
+#     plt.show()
+
+#     # ── WINDOW 2 → SEEDABILITY OVERLAY ON VISIBLE ────────────────────────────
+#     fig = plt.figure(figsize=(14, 5))
+#     ax = plt.axes(projection=ccrs.PlateCarree())
+#     ax.set_extent([LON_MIN, LON_MAX, LAT_MIN, LAT_MAX], crs=ccrs.PlateCarree())
+#     ax.imshow(rgb, origin="upper",
+#               extent=[LON_MIN, LON_MAX, LAT_MIN, LAT_MAX],
+#               transform=ccrs.PlateCarree(), aspect=None)
+#     ax.imshow(overlay, origin="upper",
+#               extent=[LON_MIN, LON_MAX, LAT_MIN, LAT_MAX],
+#               transform=ccrs.PlateCarree(), aspect=None)
+#     ax.coastlines(resolution="10m", color="white", linewidth=1)
+#     ax.set_title("Seedability Decision Map")
+#     ax.legend(handles=LEGEND, loc="lower right", fontsize=9,
+#               framealpha=0.8, facecolor="black", labelcolor="white")
+#     plt.tight_layout()
+#     plt.show()
+
+#     # ── WINDOW 3 → SIDE BY SIDE: VISIBLE + SEEDABILITY ───────────────────────
+#     fig = plt.figure(figsize=(14, 10))
+
+#     ax1 = fig.add_subplot(2, 1, 1, projection=ccrs.PlateCarree())
+#     ax1.set_extent([LON_MIN, LON_MAX, LAT_MIN, LAT_MAX], crs=ccrs.PlateCarree())
+#     ax1.imshow(rgb, origin="upper",
+#                extent=[LON_MIN, LON_MAX, LAT_MIN, LAT_MAX],
+#                transform=ccrs.PlateCarree(), aspect=None)
+#     ax1.coastlines(resolution="10m", color="white", linewidth=1)
+#     ax1.set_title("Himawari Visible")
+
+#     ax2 = fig.add_subplot(2, 1, 2, projection=ccrs.PlateCarree())
+#     ax2.set_extent([LON_MIN, LON_MAX, LAT_MIN, LAT_MAX], crs=ccrs.PlateCarree())
+#     ax2.set_facecolor("black")
+#     ax2.imshow(overlay, origin="upper",
+#                extent=[LON_MIN, LON_MAX, LAT_MIN, LAT_MAX],
+#                transform=ccrs.PlateCarree(), aspect=None)
+#     ax2.coastlines(resolution="10m", color="white", linewidth=1)
+#     ax2.set_title("Seedability Decision Map (Green / Amber / Gray)")
+#     ax2.legend(handles=LEGEND, loc="lower right", fontsize=9,
+#                framealpha=0.8, facecolor="black", labelcolor="white")
+
+#     plt.tight_layout()
+#     plt.show()
+
+"""hello"""
+
+
+# import numpy as np
+# import matplotlib.pyplot as plt
+# import matplotlib.patches as mpatches
+# from scipy.ndimage import shift, zoom
+# from skimage.registration import phase_cross_correlation
+# import cartopy.crs as ccrs
+
+# # ── Visible pipeline constants ────────────────────────────────────────────────
+# VIS_CROP_COL = 0
+# VIS_STRETCH  = 1.5
+# VIS_TARGET_H = 400
+# VIS_TARGET_W = 1300
+# VIS_ZOOM_X   = 1.25
+
+# # ── IR pipeline constants ─────────────────────────────────────────────────────
+# IR_CROP_COL  = 750
+# IR_STRETCH   = 1.8
+# IR_TARGET_H  = 400
+# IR_TARGET_W  = 1300
+# IR_ZOOM_X    = 1.25
+
+# LON_MIN, LON_MAX = 72, 130
+# LAT_MIN, LAT_MAX =  9,  22
+
+# LEGEND = [
+#     mpatches.Patch(color=(0, 0.8, 0),        label="Green  — Seedable (High Potential)"),
+#     mpatches.Patch(color=(1, 0.7, 0),        label="Amber  — Watch (Marginal)"),
+#     mpatches.Patch(color=(0.55, 0.55, 0.55), label="Gray   — Do Not Seed"),
+# ]
+
+
+# def _stretch_img(img):
+#     img = np.nan_to_num(img)
+#     p1, p99 = np.percentile(img, 1), np.percentile(img, 99)
+#     if p99 - p1 == 0:
+#         return img
+#     return np.clip((img - p1) / (p99 - p1), 0, 1)
+
+
+# def prepare_rgb(b01, b02):
+#     b01 = _stretch_img(b01)
+#     b02 = _stretch_img(b02)
+
+#     shift_detected, _, _ = phase_cross_correlation(b01, b02, upsample_factor=20)
+#     b02_aligned = shift(b02, shift_detected)
+
+#     rgb = np.dstack((b01, b02_aligned, np.zeros_like(b01)))
+#     rgb = np.clip(rgb, 0, 1)
+
+#     rgb = zoom(rgb, (1, VIS_ZOOM_X, 1))
+#     rgb = rgb[:, VIS_CROP_COL:, :]
+
+#     zh = VIS_TARGET_H / rgb.shape[0]
+#     zw = (VIS_TARGET_W / rgb.shape[1]) * VIS_STRETCH
+#     rgb = zoom(rgb, (zh, zw, 1))
+#     rgb = np.clip(rgb, 0, 1)
+
+#     return rgb
+
+
+# def _apply_pipeline_to_binary(mask2d):
+#     """
+#     Stretch a single binary mask (0.0 / 1.0) through the IR pipeline.
+#     Uses continuous interpolation then thresholds at 0.5 — accurate for binary data.
+#     """
+#     arr = zoom(mask2d.astype(np.float32), (1, IR_ZOOM_X))
+#     arr = arr[:, IR_CROP_COL:]
+
+#     zh = IR_TARGET_H / arr.shape[0]
+#     zw = (IR_TARGET_W / arr.shape[1]) * IR_STRETCH
+#     arr = zoom(arr, (zh, zw))
+
+#     if arr.shape[0] > IR_TARGET_H: arr = arr[:IR_TARGET_H, :]
+#     if arr.shape[1] > IR_TARGET_W: arr = arr[:, :IR_TARGET_W]
+#     if arr.shape[0] < IR_TARGET_H: arr = np.pad(arr, ((0, IR_TARGET_H - arr.shape[0]), (0, 0)))
+#     if arr.shape[1] < IR_TARGET_W: arr = np.pad(arr, ((0, 0), (0, IR_TARGET_W - arr.shape[1])))
+
+#     return arr > 0.5
+
+
+# def build_flag_overlay(flag):
+#     """
+#     Stretch each flag as a separate binary mask.
+#     All classified pixels (flag >= 0) are at minimum Gray.
+#     Black pixels only where flag == -1 (unclassified — should be near zero).
+#     """
+#     # Force copy so we don't mutate original
+#     flag = flag.copy()
+
+#     green_mask   = _apply_pipeline_to_binary((flag == 2).astype(np.float32))
+#     amber_mask   = _apply_pipeline_to_binary((flag == 1).astype(np.float32))
+#     # classified = flag 0, 1, or 2 — all get at minimum gray
+#     classified   = _apply_pipeline_to_binary((flag >= 0).astype(np.float32))
+
+#     H, W = green_mask.shape
+#     overlay = np.zeros((H, W, 4), dtype=np.float32)  # transparent by default
+
+#     # All classified pixels → Gray first
+#     overlay[classified]                            = [0.55, 0.55, 0.55, 1.0]
+#     # Override with Amber where applicable
+#     overlay[amber_mask & classified & ~green_mask] = [1.0,  0.7,  0.0,  1.0]
+#     # Override with Green (highest priority)
+#     overlay[green_mask & classified]               = [0.0,  0.8,  0.0,  1.0]
+
+#     print(f"\n🖼️  Overlay pixel counts (after pipeline):")
+#     print(f"  Green      : {np.count_nonzero(green_mask & classified)}")
+#     print(f"  Amber      : {np.count_nonzero(amber_mask & classified & ~green_mask)}")
+#     print(f"  Gray       : {np.count_nonzero(classified & ~amber_mask & ~green_mask)}")
+#     print(f"  Unclassified (black) : {np.count_nonzero(~classified)}")
+
+#     return overlay
+
+
+# def plot_all(data, products):
+#     rgb = prepare_rgb(data["b01"], data["b02"])
+
+#     flag = products["flag"].copy()
+#     flag[flag == -1] = 0  # catch-all: force any -1 to Gray before pipeline
+
+#     overlay = build_flag_overlay(flag)
+
+#     # ── WINDOW 1 → VISIBLE RAW ────────────────────────────────────────────────
+#     plt.figure(figsize=(14, 5))
+#     plt.imshow(rgb)
+#     plt.title("Himawari Visible (B01 + B02)")
+#     plt.axis("off")
+#     plt.tight_layout()
+#     plt.show()
+
+#     # ── WINDOW 2 → SEEDABILITY OVERLAY ON VISIBLE ────────────────────────────
+#     fig = plt.figure(figsize=(14, 5))
+#     ax = plt.axes(projection=ccrs.PlateCarree())
+#     ax.set_extent([LON_MIN, LON_MAX, LAT_MIN, LAT_MAX], crs=ccrs.PlateCarree())
+#     ax.imshow(rgb, origin="upper",
+#               extent=[LON_MIN, LON_MAX, LAT_MIN, LAT_MAX],
+#               transform=ccrs.PlateCarree(), aspect=None)
+#     ax.imshow(overlay, origin="upper",
+#               extent=[LON_MIN, LON_MAX, LAT_MIN, LAT_MAX],
+#               transform=ccrs.PlateCarree(), aspect=None)
+#     ax.coastlines(resolution="10m", color="white", linewidth=1)
+#     ax.set_title("Seedability Decision Map")
+#     ax.legend(handles=LEGEND, loc="lower right", fontsize=9,
+#               framealpha=0.8, facecolor="black", labelcolor="white")
+#     plt.tight_layout()
+#     plt.show()
+
+#     # ── WINDOW 3 → SIDE BY SIDE: VISIBLE + SEEDABILITY ───────────────────────
+#     fig = plt.figure(figsize=(14, 10))
+
+#     ax1 = fig.add_subplot(2, 1, 1, projection=ccrs.PlateCarree())
+#     ax1.set_extent([LON_MIN, LON_MAX, LAT_MIN, LAT_MAX], crs=ccrs.PlateCarree())
+#     ax1.imshow(rgb, origin="upper",
+#                extent=[LON_MIN, LON_MAX, LAT_MIN, LAT_MAX],
+#                transform=ccrs.PlateCarree(), aspect=None)
+#     ax1.coastlines(resolution="10m", color="white", linewidth=1)
+#     ax1.set_title("Himawari Visible")
+
+#     ax2 = fig.add_subplot(2, 1, 2, projection=ccrs.PlateCarree())
+#     ax2.set_extent([LON_MIN, LON_MAX, LAT_MIN, LAT_MAX], crs=ccrs.PlateCarree())
+#     ax2.set_facecolor("black")
+#     ax2.imshow(overlay, origin="upper",
+#                extent=[LON_MIN, LON_MAX, LAT_MIN, LAT_MAX],
+#                transform=ccrs.PlateCarree(), aspect=None)
+#     ax2.coastlines(resolution="10m", color="white", linewidth=1)
+#     ax2.set_title("Seedability Decision Map (Green / Amber / Gray)")
+#     ax2.legend(handles=LEGEND, loc="lower right", fontsize=9,
+#                framealpha=0.8, facecolor="black", labelcolor="white")
+
+#     plt.tight_layout()
+#     plt.show()

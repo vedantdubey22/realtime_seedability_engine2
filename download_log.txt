@@ -1,0 +1,7 @@
+/jma/hsd/202603/12/08/HS_H09_20260312_0820_B01_FLDK_R10_S0410.DAT.bz2  -->  north_india_B01.dat.bz2
+/jma/hsd/202603/12/08/HS_H09_20260312_0820_B02_FLDK_R10_S0410.DAT.bz2  -->  north_india_B02.dat.bz2
+/jma/hsd/202603/12/08/HS_H09_20260312_0820_B03_FLDK_R05_S0410.DAT.bz2  -->  north_india_B03.dat.bz2
+/jma/hsd/202603/12/08/HS_H09_20260312_0820_B08_FLDK_R20_S0410.DAT.bz2  -->  north_india_B08.dat.bz2
+/jma/hsd/202603/12/08/HS_H09_20260312_0820_B13_FLDK_R20_S0410.DAT.bz2  -->  north_india_B13.dat.bz2
+/jma/hsd/202603/12/08/HS_H09_20260312_0810_B13_FLDK_R20_S0410.DAT.bz2  -->  north_india_B13_prev.dat.bz2
+/jma/hsd/202603/12/08/HS_H09_20260312_0820_B14_FLDK_R20_S0410.DAT.bz2  -->  north_india_B14.dat.bz2
