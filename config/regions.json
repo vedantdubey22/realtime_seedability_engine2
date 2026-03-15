@@ -1,0 +1,13 @@
+{
+  "active_data_zone": {
+    "crop": {
+      "lon_start": 0,
+      "lon_end": 5500
+    },
+    "folium": {
+      "bounds": [[21.0, 60.0], [51.5, 150.0]],
+      "center": [33.18, 140.7],
+      "marker_label": "Himawari-9 S0410 (Mid-Latitude Asia)"
+    }
+  }
+}
